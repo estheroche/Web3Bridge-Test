@@ -24,12 +24,12 @@ contract Swap {
     function addLiquidity(uint256 amount1, uint256 amount2) external {
         uint provider; // counter
         LiquidityProvider storage ego = _liquidityProvider[msg.sender];
-        require(balance.[msg.sender] >= amount, "ERC20 insuficient balance");
+        require(this.balance >= amount1, "ERC20 insuficient balance");
         ego.amount1 += amount1;
         ego.amount2 += amount2;
-      uint  reserveA;
-       uint reserveB;
-       
+        uint reserveA;
+        uint reserveB;
+
         bool status = IERC20(TokenA).transferFrom(
             msg.sender,
             address(this),
