@@ -50,16 +50,16 @@ contract Swap {
     ) external returns (uint amountA, uint amountB);
 
     function withdrawA(uint amount) external {
-        uint LiquidityProvided = getProviderAmount[msg.sender];
+        uint LiquidityProvided = _liquidityProvider[msg.sender];
         require(totalProvided >= amount, "insufficent liquidity amount");
         LiquidityProvider storage ego = _liquidityProvider[msg.sender];
-        ego.amount2 -= _amount2;
+        ego.amount2 -= _amount;
         TokenA.transfer(msg.sender, amount);
     }
 
     function withdrawB(uint amount) external {
         uint LiquidityProvided = ge(msg.sender);
-        require(totalProvided >= amount, "insufficent liquidity amount");
+        require(_liquidityProvider >= amount, "insufficent liquidity amount");
         LiquidityProvider storage ego = _liquidityProvider(msg.sender);
         ego.amount2 -= amount;
         TokenB.transfer(msg.sender, amount);
