@@ -36,7 +36,7 @@ contract Swap {
             amountA
         );
         require(status == true, "transfer Failed");
-        IERC20(TokenB).transferFrom(msg.sender, address(this), amountB);
+        IERC20(TokenB).transferFrom(msg.sender, address(this), amount2);
     }
 
     function removeLiquidity(
