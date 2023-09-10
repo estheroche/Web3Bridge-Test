@@ -20,6 +20,7 @@ contract Swap {
     }
 
     mapping(address => LiquidityProvider) public _liquidityProvider;
+    mapping(address => uint) public  balance;
 
     function addLiquidity(uint256 amount1, uint256 amount2) external {
         uint provider; // counter
@@ -51,7 +52,7 @@ contract Swap {
 
     function withdrawA(uint amount) external {
         uint LiquidityProvided = _liquidityProvider[msg.sender];
-        require(totalProvided >= amount, "insufficent liquidity amount");
+        require(balance.[msg.sender] >= amount, "insufficent liquidity amount");
         LiquidityProvider storage ego = _liquidityProvider[msg.sender];
         ego.amount2 -= amount;
         TokenA.transfer(msg.sender, amount);
