@@ -33,7 +33,7 @@ contract Swap {
         bool status = IERC20(TokenA).transferFrom(
             msg.sender,
             address(this),
-            amountA
+            amount1
         );
         require(status == true, "transfer Failed");
         IERC20(TokenB).transferFrom(msg.sender, address(this), amount2);
@@ -58,7 +58,7 @@ contract Swap {
     }
 
     function withdrawB(uint amount) external {
-        uint LiquidityProvided = ge(msg.sender);
+        uint LiquidityProvided = _liquidityProvider(msg.sender);
         require(_liquidityProvider >= amount, "insufficent liquidity amount");
         LiquidityProvider storage ego = _liquidityProvider(msg.sender);
         ego.amount2 -= amount;
