@@ -53,7 +53,7 @@ contract Swap {
         uint LiquidityProvided = _liquidityProvider[msg.sender];
         require(totalProvided >= amount, "insufficent liquidity amount");
         LiquidityProvider storage ego = _liquidityProvider[msg.sender];
-        ego.amount2 -= _amount;
+        ego.amount2 -= amount;
         TokenA.transfer(msg.sender, amount);
     }
 
