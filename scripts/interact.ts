@@ -1,81 +1,131 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
+
+// NOTE:
+// DO NOT RUN THE CODE ALL AT ONCE
+// COMMENT ALL AND ONLY UNCOMMENT THE ONCE YOU NEED PER TIME
 
 async function main() {
+  // const ownerAddr = "0x9434E0a9878a1bE87918762a846dBEa7B333B5DE";
+  // const owner = await ethers.getImpersonatedSigner(ownerAddr);
+  const [owner] = await ethers.getSigners();
 
-const SwapAddr = '0xa929dFDB43Cd2C9Ddeb60B39Ec387662a69e78e6' 
-const  tokenA =	'0xbC72a571bcdDB3086823F5FA117E95E639EfACd4'
-const  tokenB = '0x59dF163602D9f16587FB3FABbA5AA13b88eF37b7'
+  // await network.provider.send("hardhat_setBalance", [
+  //   ownerAddr,
+  //   "0x91A76D5E7CC6F7DEE000"
+  // ])
 
+  // contract addresses
+  const tokenA = "0xbC72a571bcdDB3086823F5FA117E95E639EfACd4";
+  const tokenB = "0x59dF163602D9f16587FB3FABbA5AA13b88eF37b7";
+  const swap = "0x5620Ecce0fA7eBc7a70Fa421cE8d5A851130F075";
 
-const ownerAddr = '0xe9999a29B116cB45444621EcD1CE52CA013243E4'
+  const tokenAContract = await ethers.getContractAt("TokenA", tokenA);
+  const tokenBContract = await ethers.getContractAt("TokenB", tokenB);
+  const swapContract = await ethers.getContractAt("TokenSwap", swap);
 
-  const Swap = await ethers.getContractAt(
-    "ISwap",
-    "0xa929dFDB43Cd2C9Ddeb60B39Ec387662a69e78e6"
+  // checking balances before
+
+  const tokenAbalance = ethers.formatEther(
+    await tokenAContract.balanceOf(owner)
   );
+  const tokenBbalance = ethers.formatEther(
+    await tokenBContract.balanceOf(owner)
+  );
+  const contractAbalance = ethers.formatEther(
+    await tokenAContract.balanceOf(swap)
+  );
+  const contractBbalance = ethers.formatEther(
+    await tokenBContract.balanceOf(swap)
+  );
+  const reserveA = ethers.formatEther(await swapContract.reserveA());
+  const reserveB = ethers.formatEther(await swapContract.reserveB());
+  console.log({
+    tokenAbalance: tokenAbalance,
+    tokenBbalance: tokenBbalance,
+    contractAbalance: contractAbalance,
+    contractBbalance: contractBbalance,
+    reserveA: reserveA,
+    reserveB: reserveB,
+  });
 
-  const TokenA = await ethers.getContractAt(
-    "IToken",
-    "0xbC72a571bcdDB3086823F5FA117E95E639EfACd4"
-  );
+  // approving allowances
 
-  const TokenB = await ethers.getContractAt(
-    "IToken",
-    "0x59dF163602D9f16587FB3FABbA5AA13b88eF37b7"
-  );
+  const allowance = ethers.parseEther("50000000000000000");
 
-  const TokenAamount = ethers.parseUnits("500", 8);
+  await tokenAContract.connect(owner).approve(swap, allowance);
+  await tokenBContract.connect(owner).approve(swap, allowance);
 
-  const TokenBamount = ethers.parseUnits("500", 8);
+  // adding liquidity
 
-  await TokenA.approve(
-    "0xa929dFDB43Cd2C9Ddeb60B39Ec387662a69e78e6",
-    TokenAamount
-  );
+  const addTokenA = ethers.parseEther("200");
+  const addTokenB = ethers.parseEther("500");
 
-  await TokenB.approve(
-    "0xa929dFDB43Cd2C9Ddeb60B39Ec387662a69e78e6",
-    TokenBamount
+  const liquidity = await swapContract
+    .connect(owner)
+    .addLiquidity(addTokenA, addTokenB);
+  await liquidity.wait();
+
+  // withdrawing liquidity
+
+  const removeTokenA = ethers.parseEther("100");
+  const removeTokenB = ethers.parseEther("250");
+
+  const withdraw = await swapContract
+    .connect(owner)
+    .removeLiquidity(removeTokenA, removeTokenB);
+  await withdraw.wait();
+
+  // swapping A to B and checking amount of B out
+
+  const amountA = ethers.parseEther("10");
+
+  const swapAtoB = await swapContract.connect(owner).swapAToB(amountA);
+  await swapAtoB.wait();
+
+  console.log({
+    amountBOut: ethers.formatEther(
+      await swapContract.connect(owner).getAmountOut(amountA)
+    ),
+  });
+
+  // swapping B to A and checking amount of A in
+
+  const amountB = ethers.parseEther("23");
+
+  const swapBtoA = await swapContract.connect(owner).swapBToA(amountB);
+  await swapBtoA.wait();
+
+  console.log({
+    amountAIn: ethers.formatEther(
+      await swapContract.connect(owner).getAmountIn(amountB)
+    ),
+  });
+
+  // checking balances after
+
+  const tokenAbalance2 = ethers.formatEther(
+    await tokenAContract.balanceOf(owner)
   );
-  // console.log(swapContract);
-  console.log(
-    await TokenA.allowance(
-      "0xe9999a29B116cB45444621EcD1CE52CA013243E4",
-      "0xa929dFDB43Cd2C9Ddeb60B39Ec387662a69e78e6"
-    )
+  const tokenBbalance2 = ethers.formatEther(
+    await tokenBContract.balanceOf(owner)
   );
-  console.log(
-    await TokenB.allowance(
-      "0xe9999a29B116cB45444621EcD1CE52CA013243E4",
-      "0xa929dFDB43Cd2C9Ddeb60B39Ec387662a69e78e6"
-    )
+  const contractAbalance2 = ethers.formatEther(
+    await tokenAContract.balanceOf(swap)
   );
-  await Swap.addLiquidity(
-    ethers.parseUnits("100", 8),
-    ethers.parseUnits("100", 8)
+  const contractBbalance2 = ethers.formatEther(
+    await tokenBContract.balanceOf(swap)
   );
- 
+  const reserveA2 = ethers.formatEther(await swapContract.reserveA());
+  const reserveB2 = ethers.formatEther(await swapContract.reserveB());
+  console.log({
+    tokenAbalance: tokenAbalance2,
+    tokenBbalance: tokenBbalance2,
+    contractAbalance: contractAbalance2,
+    contractBbalance: contractBbalance2,
+    reserveA: reserveA2,
+    reserveB: reserveB2,
+  });
 }
-
-
-// console.log({
-//     "balanceA before swap": ethers.formatEther(
-//       await TokenA.balanceOf(0xe9999a29B116cB45444621EcD1CE52CA013243E4)
-//     ),
-//     "balanceB before swap": ethers.formatEther(
-//       await TokenB.balanceOf(0xe9999a29B116cB45444621EcD1CE52CA013243E4)
-//     ),
-//   });
-
-
-//   console.log({
-//     "balanceA after swap": ethers.formatEther(
-//       await TokenA.balanceOf(0xe9999a29B116cB45444621EcD1CE52CA013243E4)
-//     ),
-//     "balanceB after swap": ethers.formatEther(
-//       await TokenB.balanceOf(0xe9999a29B116cB45444621EcD1CE52CA013243E4)
-//     ),
-//   });
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.

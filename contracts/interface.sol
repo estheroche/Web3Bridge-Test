@@ -26,4 +26,8 @@ interface ISwap {
     function removeLiquidity(uint256 liquidity) external;
 
     function swapTokens(uint256 amountA, uint256 amountB) external;
+
+    function swapBToA(uint amountB) external;
+
+    function swapAToB(uint amountA) external;
 }

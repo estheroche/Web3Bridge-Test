@@ -1,159 +1,121 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TokenSwap {
+contract Swap is Ownable {
     IERC20 public tokenA;
     IERC20 public tokenB;
-    uint256 public totalLiquidity;
-    uint256 public constant k = 1000; // CPMM constant, adjust as needed
+
+    uint public reserveA;
+    uint public reserveB;
 
     struct LiquidityProvider {
-        uint256 amount1;
-        uint256 amount2;
+        uint amountA;
+        uint amountB;
     }
 
-    mapping(address => LiquidityProvider) public liquidityProviders;
+    mapping(address => LiquidityProvider) liquidityProviders;
 
-    event TokensSwapped(
-        address indexed user,
-        uint256 amountA,
-        uint256 amountB,
-        uint256 amountAReceived,
-        uint256 amountBReceived
-    );
-    event LiquidityAdded(
-        address indexed provider,
-        uint256 amountA,
-        uint256 amountB
-    );
-    event LiquidityWithdrawn(
-        address indexed provider,
-        uint256 amountA,
-        uint256 amountB
-    );
+    event SwappedAToB(address indexed sender, uint amountA, uint amountB);
+    event SwappedBToA(address indexed sender, uint amountB, uint amountA);
 
-    constructor(IERC20 _tokenA, IERC20 _tokenB) {
-        tokenA = _tokenA;
-        tokenB = _tokenB;
+    constructor(address _tokenA, address _tokenB) {
+        tokenA = IERC20(_tokenA);
+        tokenB = IERC20(_tokenB);
     }
 
-    function addLiquidity(uint256 amountA, uint256 amountB) external {
-        require(
-            amountA > 0 && amountB > 0,
-            "Both amounts must be greater than zero"
-        );
-
-        uint256 poolBalanceA = tokenA.balanceOf(address(this));
-        uint256 poolBalanceB = tokenB.balanceOf(address(this));
-
-        if (totalLiquidity == 0 || poolBalanceA == 0 || poolBalanceB == 0) {
-            require(
-                tokenA.transferFrom(msg.sender, address(this), amountA),
-                "Transfer of Token A failed"
-            );
-            require(
-                tokenB.transferFrom(msg.sender, address(this), amountB),
-                "Transfer of Token B failed"
-            );
-        } else {
-            uint256 liquidityMinted = (amountA * totalLiquidity) / poolBalanceA;
-            require(liquidityMinted > 0, "Insufficient liquidity to mint");
-
-            uint256 newLiquidity = totalLiquidity + liquidityMinted;
-            require(
-                tokenA.transferFrom(msg.sender, address(this), amountA),
-                "Transfer of Token A failed"
-            );
-            require(
-                tokenB.transferFrom(msg.sender, address(this), amountB),
-                "Transfer of Token B failed"
-            );
-
-            liquidityProviders[msg.sender].amount1 +=
-                (amountA * totalLiquidity) /
-                poolBalanceA;
-            liquidityProviders[msg.sender].amount2 +=
-                (amountB * totalLiquidity) /
-                poolBalanceB;
-            totalLiquidity = newLiquidity;
-        }
-
-        emit LiquidityAdded(msg.sender, amountA, amountB);
+    function getAmountOut(uint _amountA) public view returns (uint) {
+        // b = B - (k / (A + a))
+        uint k = reserveA * reserveB;
+        return (reserveB - (k / (reserveA + _amountA)));
     }
 
-    function removeLiquidity(uint256 liquidity) external {
-        require(
-            liquidity > 0 &&
-                liquidityProviders[msg.sender].amount1 >= liquidity &&
-                liquidityProviders[msg.sender].amount2 >= liquidity,
-            "Invalid liquidity amount"
-        );
-
-        uint256 poolBalanceA = tokenA.balanceOf(address(this));
-        uint256 poolBalanceB = tokenB.balanceOf(address(this));
-
-        uint256 amountA = (liquidity * poolBalanceA) / totalLiquidity;
-        uint256 amountB = (liquidity * poolBalanceB) / totalLiquidity;
-
-        require(
-            tokenA.transfer(msg.sender, amountA),
-            "Transfer of Token A failed"
-        );
-        require(
-            tokenB.transfer(msg.sender, amountB),
-            "Transfer of Token B failed"
-        );
-
-        liquidityProviders[msg.sender].amount1 -= amountA;
-        liquidityProviders[msg.sender].amount2 -= amountB;
-        totalLiquidity -= liquidity;
-
-        emit LiquidityWithdrawn(msg.sender, amountA, amountB);
+    function getAmountIn(uint _amountB) public view returns (uint) {
+        // a = A - (k / (B + b))
+        uint k = reserveA * reserveB;
+        return (reserveA - (k / (reserveB + _amountB)));
     }
 
-    function swapTokens(uint256 amountA, uint256 amountB) external {
-        require(
-            amountA > 0 && amountB > 0,
-            "Both amounts must be greater than zero"
-        );
+    function swapAToB(uint amountA) external {
+        uint amountB = getAmountOut(amountA);
+        require(amountB > 0, "Insufficient output amount");
 
-        uint256 poolBalanceA = tokenA.balanceOf(address(this));
-        uint256 poolBalanceB = tokenB.balanceOf(address(this));
-        uint256 amountAReceived = (amountB * poolBalanceA) /
-            (poolBalanceB + amountB);
-        uint256 amountBReceived = (amountA * poolBalanceB) /
-            (poolBalanceA + amountA);
+        //Transfer amountA from the sender to this contract
+        bool aSuc = tokenA.transferFrom(msg.sender, address(this), amountA);
+        require(aSuc, "Transfer of tokenA failed");
+
+        //Update reserves
+        reserveA += amountA;
+        reserveB -= amountB;
+
+        //Transfer amountB from this contract to the sender
+        bool bSuc = tokenB.transfer(msg.sender, amountB);
+        require(bSuc, "Transfer of tokenB failed");
+
+        //Emit an event for the swap
+        emit SwappedAToB(msg.sender, amountA, amountB);
+    }
+
+    function swapBToA(uint amountB) external {
+        uint amountA = getAmountIn(amountB);
+        require(amountA > 0, "Insufficient input amount");
+
+        //Transfer amountB from the sender to this contract
+        bool bSuc = tokenB.transferFrom(msg.sender, address(this), amountB);
+        require(bSuc, "Transfer of tokenB failed");
+
+        //Update reserves
+        reserveB += amountB;
+        reserveA -= amountA;
+
+        //Transfer amountA from this contract to the sender
+        bool aSuc = tokenA.transfer(msg.sender, amountA);
+        require(aSuc, "Transfer of tokenA failed");
+
+        //Emit an event for the swap
+        emit SwappedBToA(msg.sender, amountB, amountA);
+    }
+
+    function addLiquidity(uint _amountA, uint _amountB) external {
+        require(_amountA > 0, "Invalid amountA");
+        require(_amountB > 0, "Invalid amountB");
+        require(
+            tokenA.transferFrom(msg.sender, address(this), _amountA),
+            "Transfer of tokenA failed"
+        );
+        require(
+            tokenB.transferFrom(msg.sender, address(this), _amountB),
+            "Transfer of tokenB failed"
+        );
+        reserveA += _amountA;
+        reserveB += _amountB;
+
+        LiquidityProvider storage provider = liquidityProviders[msg.sender];
+        provider.amountA += _amountA;
+        provider.amountB += _amountB;
+    }
+
+    // if add, t b u;
+    // if withdraw, u b t;
+    function removeLiquidity(uint _amountA, uint _amountB) external {
+        LiquidityProvider storage provider = liquidityProviders[msg.sender];
+        require(provider.amountA > _amountA, "Insufficient balance of tokenA");
+        require(provider.amountB > _amountB, "Insufficient balance of tokenB");
+
+        reserveA -= _amountA;
+        reserveB -= _amountB;
+        provider.amountA -= _amountA;
+        provider.amountB -= _amountB;
 
         require(
-            amountAReceived > 0 && amountBReceived > 0,
-            "Swap would result in zero tokens received"
-        );
-
-        require(
-            tokenA.transferFrom(msg.sender, address(this), amountA),
-            "Transfer of Token A failed"
+            tokenA.transfer(msg.sender, _amountA),
+            "Withdrawal of tokenA failed"
         );
         require(
-            tokenB.transferFrom(msg.sender, address(this), amountB),
-            "Transfer of Token B failed"
-        );
-        require(
-            tokenA.transfer(msg.sender, amountAReceived),
-            "Transfer of Token A to user failed"
-        );
-        require(
-            tokenB.transfer(msg.sender, amountBReceived),
-            "Transfer of Token B to user failed"
-        );
-
-        emit TokensSwapped(
-            msg.sender,
-            amountA,
-            amountB,
-            amountAReceived,
-            amountBReceived
+            tokenB.transfer(msg.sender, _amountB),
+            "Withdrawal of tokenB failed"
         );
     }
 }
