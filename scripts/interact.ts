@@ -1,18 +1,12 @@
 import { ethers, network } from "hardhat";
 
-// NOTE:
-// DO NOT RUN THE CODE ALL AT ONCE
-// COMMENT ALL AND ONLY UNCOMMENT THE ONCE YOU NEED PER TIME
+
 
 async function main() {
-  // const ownerAddr = "0x9434E0a9878a1bE87918762a846dBEa7B333B5DE";
-  // const owner = await ethers.getImpersonatedSigner(ownerAddr);
+
   const [owner] = await ethers.getSigners();
 
-  // await network.provider.send("hardhat_setBalance", [
-  //   ownerAddr,
-  //   "0x91A76D5E7CC6F7DEE000"
-  // ])
+
 
   // contract addresses
   const tokenA = "0xbC72a571bcdDB3086823F5FA117E95E639EfACd4";
@@ -21,7 +15,7 @@ async function main() {
 
   const tokenAContract = await ethers.getContractAt("TokenA", tokenA);
   const tokenBContract = await ethers.getContractAt("TokenB", tokenB);
-  const swapContract = await ethers.getContractAt("TokenSwap", swap);
+  const swapContract = await ethers.getContractAt("Swap", swap);
 
   // checking balances before
 
@@ -55,7 +49,7 @@ async function main() {
   await tokenAContract.connect(owner).approve(swap, allowance);
   await tokenBContract.connect(owner).approve(swap, allowance);
 
-  // adding liquidity
+  // addliquidity
 
   const addTokenA = ethers.parseEther("200");
   const addTokenB = ethers.parseEther("500");
@@ -65,7 +59,7 @@ async function main() {
     .addLiquidity(addTokenA, addTokenB);
   await liquidity.wait();
 
-  // withdrawing liquidity
+  // removeliquidity
 
   const removeTokenA = ethers.parseEther("100");
   const removeTokenB = ethers.parseEther("250");
